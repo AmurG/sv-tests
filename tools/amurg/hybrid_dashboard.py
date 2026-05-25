@@ -681,7 +681,7 @@ def parse_args():
                         default=int(os.environ.get("BUILD_JOBS", "32")))
     parser.add_argument("--arcilator-scope",
                         choices=["uvm", "all", "none"],
-                        default=os.environ.get("ARCILATOR_SCOPE", "uvm"))
+                        default=os.environ.get("ARCILATOR_SCOPE", "all"))
     parser.add_argument("--skip-circt-verilog",
                         action="store_true",
                         default=os.environ.get("SKIP_CIRCT_VERILOG", "") == "1")

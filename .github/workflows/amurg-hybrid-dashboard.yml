@@ -15,10 +15,10 @@ on:
         description: Arcilator test scope
         required: true
         type: choice
-        default: uvm
+        default: all
         options:
-          - uvm
           - all
+          - uvm
           - none
       skip_circt_verilog:
         description: Keep upstream circt_verilog column instead of recomputing it
