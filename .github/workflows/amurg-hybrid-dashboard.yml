@@ -1,0 +1,102 @@
+name: AmurG hybrid dashboard
+
+on:
+  workflow_dispatch:
+    inputs:
+      circt_remote:
+        description: CIRCT git remote to test
+        required: true
+        default: https://github.com/llvm/circt.git
+      circt_ref:
+        description: CIRCT ref/SHA to test; empty uses this sv-tests submodule pin
+        required: false
+        default: ""
+      arcilator_scope:
+        description: Arcilator test scope
+        required: true
+        type: choice
+        default: uvm
+        options:
+          - uvm
+          - all
+          - none
+      skip_circt_verilog:
+        description: Keep upstream circt_verilog column instead of recomputing it
+        required: true
+        type: boolean
+        default: false
+      baseline_results_ref:
+        description: Branch/ref in chipsalliance/sv-tests-results to use as imported baseline
+        required: true
+        default: gh-pages
+      push_results:
+        description: Push generated static dashboard to AmurG/sv-tests-results:gh-pages
+        required: true
+        type: boolean
+        default: true
+
+concurrency:
+  group: amurg-hybrid-dashboard
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  hybrid:
+    name: Hybrid dashboard
+    runs-on: arcilator-dashboard
+    timeout-minutes: 480
+    env:
+      BASELINE_RESULTS_URL: https://github.com/chipsalliance/sv-tests-results.git
+      BASELINE_RESULTS_REF: ${{ inputs.baseline_results_ref }}
+      CIRCT_REMOTE: ${{ inputs.circt_remote }}
+      CIRCT_REF: ${{ inputs.circt_ref }}
+      ARCILATOR_SCOPE: ${{ inputs.arcilator_scope }}
+      SKIP_CIRCT_VERILOG: ${{ inputs.skip_circt_verilog && '1' || '0' }}
+      RESULTS_PUSH_BRANCH: gh-pages
+      JOBS: "16"
+      BUILD_JOBS: "32"
+      AMURG_WORK_DIR: out/amurg-hybrid-dashboard
+      RESULTS_PUSH_TOKEN: ${{ secrets.AMURG_RESULTS_PUSH_TOKEN }}
+
+    steps:
+      - name: Checkout sv-tests
+        uses: actions/checkout@v4
+        with:
+          submodules: false
+          fetch-depth: 1
+
+      - name: Prepare system dependencies
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y cpanminus file git python3 python3-pip wget curl jq
+          sudo cpanm --notest Bit::Vector JSON
+
+      - name: Prepare Python dependencies
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' || python3 -m pip install --user --use-pep517 -r conf/requirements.txt
+          import jinja2
+          import psutil
+          import pygments
+          import yaml
+          PY
+
+      - name: Build hybrid dashboard
+        env:
+          CIRCT_BUILD_DIR: /home/aghose/ci-cache/sv-tests-arcilator/circt-build
+        run: |
+          set -euo pipefail
+          export PATH="$HOME/.local/bin:$PATH"
+          args=()
+          if [ "${{ inputs.push_results }}" = "true" ]; then
+            if [ -z "${RESULTS_PUSH_TOKEN:-}" ]; then
+              echo "AMURG_RESULTS_PUSH_TOKEN is required when push_results=true" >&2
+              exit 1
+            fi
+            export RESULTS_PUSH_URL="https://x-access-token:${RESULTS_PUSH_TOKEN}@github.com/AmurG/sv-tests-results.git"
+            args+=(--push)
+          fi
+          python3 tools/amurg/hybrid_dashboard.py "${args[@]}"
