@@ -639,8 +639,14 @@ def commit_and_push_results(results_dir, push_url, branch, message):
     if not status:
         print("No result changes to commit.", flush=True)
         return False
-    run(["git", "commit", "-m", message], cwd=results_dir)
-    run(["git", "push", "origin", f"HEAD:{branch}"], cwd=results_dir)
+
+    run(["git", "fetch", "origin", branch], cwd=results_dir, check=False)
+    remote_parent = capture(["git", "rev-parse", "--verify", f"origin/{branch}"],
+                            cwd=results_dir)
+    tree = capture(["git", "write-tree"], cwd=results_dir)
+    commit = capture(["git", "commit-tree", tree, "-p", remote_parent, "-m", message],
+                     cwd=results_dir)
+    run(["git", "push", "origin", f"{commit}:{branch}"], cwd=results_dir)
     return True
 
 
