@@ -16,7 +16,10 @@ class circt_verilog(BaseRunner):
     def __init__(
         self,
         name="circt-verilog",
-        supported_features={"preprocessing", "parsing", "elaboration"},
+        supported_features={
+            "preprocessing", "parsing", "elaboration",
+            "simulation", "simulation_without_run"
+        },
     ):
         super().__init__(
             name,
